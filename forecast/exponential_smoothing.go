@@ -14,7 +14,7 @@ import (
 // y - Time series data gotten from s.
 // alpha - Exponential smoothing coefficients for level, trend,
 //        seasonal components.
-// m - Future forecast period ahead
+// m - Intervals into the future to forecast
 //
 // https://www.itl.nist.gov/div898/handbook/pmc/section4/pmc431.htm
 // newvalue = smoothing * next + (1 - smoothing)*old value
