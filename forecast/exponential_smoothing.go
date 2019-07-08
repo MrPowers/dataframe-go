@@ -1,6 +1,7 @@
 package forecast
 
 import (
+	"context"
 	"errors"
 
 	"github.com/rocketlaunchr/dataframe-go"
@@ -20,7 +21,7 @@ import (
 // newvalue = smoothing * next + (1 - smoothing)*old value
 // forecast[i+1] = St[i] + alpha * ϵt,
 // where ϵt is the forecast error (actual - forecast) for period i.
-func SimpleExponentialSmoothing(s *dataframe.SeriesFloat64, alpha float64, m int) ([]float64, error) {
+func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64, alpha float64, m int) ([]float64, error) {
 
 	// fetch array of float64 from series
 	y := s.Values
@@ -50,6 +51,11 @@ func SimpleExponentialSmoothing(s *dataframe.SeriesFloat64, alpha float64, m int
 
 	// start smoothing from the third element
 	for i := 2; i < len(y); i++ {
+
+		// Exiting on context error
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 
 		// simple exponential Smoothing
 		st[i] = alpha*y[i] + ((1.0 - alpha) * st[i-1])

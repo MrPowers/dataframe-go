@@ -1,6 +1,7 @@
 package forecast
 
 import (
+	"context"
 	"errors"
 
 	"github.com/rocketlaunchr/dataframe-go"
@@ -31,7 +32,7 @@ import (
 // bt[i] = gamma * (st[i] - st[i - 1]) + (1 - gamma) * bt[i - 1]
 // it[i] = beta * y[i] / st[i] + (1.0 - beta) * it[i - period]
 // ft[i + m] = (st[i] + (m * bt[i])) * it[i - period + m]
-func HoltWinters(s *dataframe.SeriesFloat64, alpha, beta, gamma float64, period, m int) ([]float64, error) {
+func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, gamma float64, period, m int) ([]float64, error) {
 
 	// Fetch array of float numbers
 	y := s.Values
@@ -66,14 +67,17 @@ func HoltWinters(s *dataframe.SeriesFloat64, alpha, beta, gamma float64, period,
 	b0 := initialTrend(y, period)
 	seasonal := seasonalIndicies(y, period, seasons)
 
-	forecast := calculateHoltWinters(y, a0, b0, alpha, beta, gamma, seasonal, period, m)
+	forecast, err := calculateHoltWinters(ctx, y, a0, b0, alpha, beta, gamma, seasonal, period, m)
+	if err != nil {
+		return nil, err
+	}
 
 	return forecast, nil
 }
 
 // This method realizes the Holt-Winters equations.
 // Forecast for m periods.
-func calculateHoltWinters(y []float64, a0, b0, alpha, beta, gamma float64, initialSeasonalIndices []float64, period, m int) []float64 {
+func calculateHoltWinters(ctx context.Context, y []float64, a0, b0, alpha, beta, gamma float64, initialSeasonalIndices []float64, period, m int) ([]float64, error) {
 
 	st := make([]float64, len(y))
 	bt := make([]float64, len(y))
@@ -88,6 +92,11 @@ func calculateHoltWinters(y []float64, a0, b0, alpha, beta, gamma float64, initi
 	}
 
 	for i := 2; i < len(y); i++ {
+
+		// Breaking out on context failure
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 
 		// overall smoothing
 		if (i - period) >= 0 {
@@ -110,7 +119,7 @@ func calculateHoltWinters(y []float64, a0, b0, alpha, beta, gamma float64, initi
 		}
 	}
 
-	return ft
+	return ft, nil
 }
 
 // See: http://robjhyndman.com/researchtips/hw-initialization/
