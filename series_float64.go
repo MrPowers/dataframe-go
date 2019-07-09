@@ -4,6 +4,7 @@ package dataframe
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -474,4 +475,33 @@ func (s *SeriesFloat64) ContainsNil() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.nilCount > 0
+}
+
+// LoadSliceIntoSeries method is used to load series data
+// From a slice and update contents of a Series at certain range points
+func (s *SeriesFloat64) LoadSliceIntoSeries(d []float64, r ...Range) error {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	if len(r) == 0 {
+		r = append(r, Range{})
+	}
+
+	if len(d) > len(s.Values) {
+		return errors.New("Slice Incompatible: length must be less than or equal to size of series")
+	}
+
+	// Range is dependent on length of slice, d
+	start, end, err := r[0].Limits(len(d))
+	if err != nil {
+		return err
+	}
+
+	// Inserting values into series
+	for row := start; row <= end; row++ {
+		val := s.valToPointer(d[row])
+		s.Update(row, val, DontLock)
+	}
+
+	return nil
 }
