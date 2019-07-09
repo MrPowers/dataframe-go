@@ -38,11 +38,12 @@ func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, g
 		r = append(r, dataframe.Range{})
 	}
 
-	// fetch array of float64 from series
-	y, err := s.SeriesToSlice(r[0])
+	start, end, err := r[0].Limits(len(s.Values))
 	if err != nil {
 		return nil, err
 	}
+	// inclusive of value at end index
+	y := s.Values[start : end+1]
 
 	// Validating arguments
 	if len(y) == 0 {

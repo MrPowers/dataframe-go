@@ -475,21 +475,3 @@ func (s *SeriesFloat64) ContainsNil() bool {
 	defer s.lock.RUnlock()
 	return s.nilCount > 0
 }
-
-// SeriesToSlice method is used to Fetch and return
-// A range of data from Series as Array/Slice
-func (s *SeriesFloat64) SeriesToSlice(r ...Range) ([]float64, error) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
-	if len(r) == 0 {
-		r = append(r, Range{})
-	}
-
-	start, end, err := r[0].Limits(len(s.Values))
-	if err != nil {
-		return nil, err
-	}
-	// inclusive of value at end index
-	return s.Values[start : end+1], nil
-}
