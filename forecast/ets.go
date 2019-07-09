@@ -79,7 +79,7 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 	seriesForecast := dataframe.NewSeriesFloat64(s.Name(), init)
 
 	// Load forecast data into series
-	seriesForecast.LoadData(forecast)
+	seriesForecast.LoadData(forecast[len(y):])
 	if err != nil {
 		return nil, err
 	}
