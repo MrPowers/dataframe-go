@@ -32,7 +32,7 @@ import (
 // bt[i] = gamma * (st[i] - st[i - 1]) + (1 - gamma) * bt[i - 1]
 // it[i] = beta * y[i] / st[i] + (1.0 - beta) * it[i - period]
 // ft[i + m] = (st[i] + (m * bt[i])) * it[i - period + m]
-func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, gamma float64, period, m int, r ...dataframe.Range) ([]float64, error) {
+func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, gamma float64, period, m int, r ...dataframe.Range) (*dataframe.SeriesFloat64, error) {
 
 	if len(r) == 0 {
 		r = append(r, dataframe.Range{})
@@ -80,7 +80,17 @@ func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, g
 		return nil, err
 	}
 
-	return forecast, nil
+	init := &dataframe.SeriesInit{Size: len(forecast)}
+
+	seriesForecast := dataframe.NewSeriesFloat64(s.Name(), init)
+
+	// Load forecast data into series
+	seriesForecast.LoadSliceIntoSeries(forecast)
+	if err != nil {
+		return nil, err
+	}
+
+	return seriesForecast, nil
 }
 
 // This method realizes the Holt-Winters equations.

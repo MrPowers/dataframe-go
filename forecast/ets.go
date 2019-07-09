@@ -21,7 +21,7 @@ import (
 // newvalue = smoothing * next + (1 - smoothing)*old value
 // forecast[i+1] = St[i] + alpha * ϵt,
 // where ϵt is the forecast error (actual - forecast) for period i.
-func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64, alpha float64, m int, r ...dataframe.Range) ([]float64, error) {
+func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64, alpha float64, m int, r ...dataframe.Range) (*dataframe.SeriesFloat64, error) {
 
 	if len(r) == 0 {
 		r = append(r, dataframe.Range{})
@@ -74,5 +74,16 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 		}
 	}
 
-	return forecast, nil
+	init := &dataframe.SeriesInit{Size: len(forecast)}
+
+	seriesForecast := dataframe.NewSeriesFloat64(s.Name(), init)
+
+	// Load forecast data into series
+	seriesForecast.LoadSliceIntoSeries(forecast)
+	if err != nil {
+		return nil, err
+	}
+
+	return seriesForecast, nil
+
 }
