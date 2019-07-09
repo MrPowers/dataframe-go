@@ -32,10 +32,17 @@ import (
 // bt[i] = gamma * (st[i] - st[i - 1]) + (1 - gamma) * bt[i - 1]
 // it[i] = beta * y[i] / st[i] + (1.0 - beta) * it[i - period]
 // ft[i + m] = (st[i] + (m * bt[i])) * it[i - period + m]
-func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, gamma float64, period, m int) ([]float64, error) {
+func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, gamma float64, period, m int, r ...dataframe.Range) ([]float64, error) {
 
-	// Fetch array of float numbers
-	y := s.Values
+	if len(r) == 0 {
+		r = append(r, dataframe.Range{})
+	}
+
+	// fetch array of float64 from series
+	y, err := s.SeriesToSlice(r[0])
+	if err != nil {
+		return nil, err
+	}
 
 	// Validating arguments
 	if len(y) == 0 {
