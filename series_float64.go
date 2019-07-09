@@ -476,30 +476,20 @@ func (s *SeriesFloat64) ContainsNil() bool {
 	return s.nilCount > 0
 }
 
-// LoadSliceIntoSeries method is used to load series data
+// LoadData method is used to load series data
 // From a slice and update contents of a Series at certain range points
-func (s *SeriesFloat64) LoadSliceIntoSeries(d []float64, r ...Range) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+func (s *SeriesFloat64) LoadData(d []float64, r ...int) {
+	s.Lock()
+	defer s.Unlock()
 
-	if len(r) == 0 {
-		r = append(r, Range{})
-	}
+	if len(r) == 0 { // Append to End If Insert point not provided
+		s.Values = append(s.Values, d...)
+	} else {
+		if r[0] > len(s.Values) {
+			panic("specificed Row should not be greater than size of Series")
+		}
 
-	if len(d) > len(s.Values) {
-		panic("Slice Incompatible: size of slice must be less than or equal to size of series")
-	}
-
-	// Range is dependent on length of slice, d
-	start, end, err := r[0].Limits(len(d))
-	if err != nil {
-		panic(err)
-	}
-
-	// Inserting values into series
-	for row := start; row <= end; row++ {
-		val := s.valToPointer(d[row])
-		s.Update(row, val, DontLock)
+		s.Values = append(s.Values[:r[0]], append(d, s.Values[r[0]:]...)...)
 	}
 
 }
