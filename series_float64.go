@@ -488,7 +488,7 @@ func (s *SeriesFloat64) LoadSliceIntoSeries(d []float64, r ...Range) error {
 	}
 
 	if len(d) > len(s.Values) {
-		return errors.New("Slice Incompatible: length must be less than or equal to size of series")
+		return errors.New("Slice Incompatible: size of slice must be less than or equal to size of series")
 	}
 
 	// Range is dependent on length of slice, d
