@@ -485,8 +485,8 @@ func (s *SeriesFloat64) LoadData(d []float64, r ...int) {
 	if len(r) == 0 { // Append to End If Insert point not provided
 		s.Values = append(s.Values, d...)
 	} else {
-		if r[0] > len(s.Values) {
-			panic("specificed Row should not be greater than size of Series")
+		if r[0] >= len(s.Values) {
+			panic("specificed Row should be a valid index within the Series")
 		}
 
 		s.Values = append(s.Values[:r[0]], append(d, s.Values[r[0]:]...)...)
