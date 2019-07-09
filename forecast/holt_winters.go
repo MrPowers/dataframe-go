@@ -85,7 +85,7 @@ func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, g
 	seriesForecast := dataframe.NewSeriesFloat64(s.Name(), init)
 
 	// Load forecast data into series
-	seriesForecast.LoadData(forecast)
+	seriesForecast.LoadData(forecast[period:])
 	if err != nil {
 		return nil, err
 	}
