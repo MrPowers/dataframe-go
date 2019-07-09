@@ -177,7 +177,23 @@ func (s *SeriesFloat64) Insert(row int, val interface{}, options ...Options) {
 		defer s.lock.Unlock()
 	}
 
-	s.insert(row, val)
+	switch vals := val.(type) {
+
+	case []float64:
+
+		for _, elem := range vals { // Checking for nilvalues in slice to be added
+			v := s.valToPointer(elem)
+			if isNaN(v) {
+				s.nilCount++
+			}
+		}
+
+		s.Values = append(s.Values[:row], append(vals, s.Values[row:]...)...)
+
+	default:
+		s.insert(row, val)
+	}
+
 }
 
 func (s *SeriesFloat64) insert(row int, val interface{}) {
@@ -474,22 +490,4 @@ func (s *SeriesFloat64) ContainsNil() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.nilCount > 0
-}
-
-// LoadData method is used to load series data
-// From a slice and update contents of a Series at certain range points
-func (s *SeriesFloat64) LoadData(d []float64, r ...int) {
-	s.Lock()
-	defer s.Unlock()
-
-	if len(r) == 0 { // Append to End If Insert point not provided
-		s.Values = append(s.Values, d...)
-	} else {
-		if r[0] >= len(s.Values) {
-			panic("specificed Row should be a valid index within the Series")
-		}
-
-		s.Values = append(s.Values[:r[0]], append(d, s.Values[r[0]:]...)...)
-	}
-
 }
