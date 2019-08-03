@@ -4,6 +4,7 @@ package forecast
 
 import (
 	"context"
+	"errors"
 	"math"
 
 	"github.com/rocketlaunchr/dataframe-go"
@@ -24,7 +25,7 @@ type ErrorOptions struct {
 	DontLock bool
 
 	// SkipInvalids will skip Inf and NaN values.
-	// If set to false (default), a ErrIndeterminate will be returned
+	// If set to false (default), a ErrIndeterminate will be returned.
 	SkipInvalids bool
 }
 
@@ -41,8 +42,10 @@ func MeanAbsoluteError(ctx context.Context, testSeries, forecast *dataframe.Seri
 		defer forecast.Unlock()
 	}
 
+	nPred := len(forecast.Values)
+
 	if len(r) == 0 {
-		r = append(r, dataframe.Range{})
+		r = append(r, dataframe.Range{Start: &[]int{-nPred}[0]})
 	}
 
 	// Check if the range of testSeries matches the range of forecast
@@ -51,10 +54,8 @@ func MeanAbsoluteError(ctx context.Context, testSeries, forecast *dataframe.Seri
 		return 0.0, 0, err
 	}
 
-	nPred := len(forecast.Values)
-
 	if nTest != nPred {
-		return 0.0, 0, dataframe.ErrMismatchLen
+		return 0.0, 0, errors.New("mismatch length")
 	}
 
 	// Calculate MAE
@@ -108,8 +109,10 @@ func SumOfSquaredErrors(ctx context.Context, testSeries, forecast *dataframe.Ser
 		defer forecast.Unlock()
 	}
 
+	nPred := len(forecast.Values)
+
 	if len(r) == 0 {
-		r = append(r, dataframe.Range{})
+		r = append(r, dataframe.Range{Start: &[]int{-nPred}[0]})
 	}
 
 	// Check if the range of testSeries matches the range of forecast
@@ -118,13 +121,11 @@ func SumOfSquaredErrors(ctx context.Context, testSeries, forecast *dataframe.Ser
 		return 0.0, 0, err
 	}
 
-	nPred := len(forecast.Values)
-
 	if nTest != nPred {
-		return 0.0, 0, dataframe.ErrMismatchLen
+		return 0.0, 0, errors.New("mismatch length")
 	}
 
-	// Calculate RMSE
+	// Calculate SSE
 
 	start, end, err := r[0].Limits(len(testSeries.Values))
 	if err != nil {
@@ -208,8 +209,10 @@ func MeanAbsolutePercentageError(ctx context.Context, testSeries, forecast *data
 		defer forecast.Unlock()
 	}
 
+	nPred := len(forecast.Values)
+
 	if len(r) == 0 {
-		r = append(r, dataframe.Range{})
+		r = append(r, dataframe.Range{Start: &[]int{-nPred}[0]})
 	}
 
 	// Check if the range of testSeries matches the range of forecast
@@ -218,10 +221,8 @@ func MeanAbsolutePercentageError(ctx context.Context, testSeries, forecast *data
 		return 0.0, 0, err
 	}
 
-	nPred := len(forecast.Values)
-
 	if nTest != nPred {
-		return 0.0, 0, dataframe.ErrMismatchLen
+		return 0.0, 0, errors.New("mismatch length")
 	}
 
 	// Calculate MAPE

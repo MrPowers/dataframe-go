@@ -10,10 +10,5 @@ import (
 // contains no rows of data.
 var ErrNoRows = errors.New("contains no rows")
 
-// ErrMismatchLen signifies that there is a difference between the lengths
-// of 2 series or 2 dataframes. Usually it means that they are expected
-// to match.
-var ErrMismatchLen = errors.New("mismatch length")
-
 // ErrIndeterminate indicates that the result of a calculation is indeterminate.
 var ErrIndeterminate = errors.New("calculation result: indeterminate")
