@@ -157,10 +157,6 @@ func SumOfSquaredErrors(ctx context.Context, testSeries, forecast *dataframe.Ser
 		n = n + 1
 	}
 
-	if n == 0 {
-		return 0.0, 0, dataframe.ErrIndeterminate
-	}
-
 	return sum, n, nil
 }
 
@@ -190,6 +186,10 @@ func RootMeanSquaredError(ctx context.Context, testSeries, forecast *dataframe.S
 	sse, n, err := SumOfSquaredErrors(ctx, testSeries, forecast, opts, r...)
 	if err != nil {
 		return 0.0, 0, err
+	}
+
+	if n == 0 {
+		return 0.0, 0, dataframe.ErrIndeterminate
 	}
 
 	return math.Sqrt(sse / float64(n)), n, nil
