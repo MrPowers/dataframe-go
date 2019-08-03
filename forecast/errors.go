@@ -74,6 +74,10 @@ func MeanAbsoluteError(ctx context.Context, testSeries, forecast *dataframe.Seri
 	// Loop through forecast starting at 0.
 	for i, j := start, 0; i < end+1; i, j = i+1, j+1 {
 
+		if err := ctx.Err(); err != nil {
+			return 0.0, 0, err
+		}
+
 		actual := testSeries.Values[i]
 		predicted := forecast.Values[j]
 
@@ -140,6 +144,10 @@ func SumOfSquaredErrors(ctx context.Context, testSeries, forecast *dataframe.Ser
 	// Loop through testSeries starting at start.
 	// Loop through forecast starting at 0.
 	for i, j := start, 0; i < end+1; i, j = i+1, j+1 {
+
+		if err := ctx.Err(); err != nil {
+			return 0.0, 0, err
+		}
 
 		actual := testSeries.Values[i]
 		predicted := forecast.Values[j]
@@ -240,6 +248,10 @@ func MeanAbsolutePercentageError(ctx context.Context, testSeries, forecast *data
 	// Loop through testSeries starting at start.
 	// Loop through forecast starting at 0.
 	for i, j := start, 0; i < end+1; i, j = i+1, j+1 {
+
+		if err := ctx.Err(); err != nil {
+			return 0.0, 0, err
+		}
 
 		actual := testSeries.Values[i]
 		predicted := forecast.Values[j]
