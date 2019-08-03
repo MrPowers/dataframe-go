@@ -1,15 +1,10 @@
-// Copyright 2018 PJ Engineering and Business Solutions Pty. Ltd. All rights reserved.
+// Copyright 2018-19 PJ Engineering and Business Solutions Pty. Ltd. All rights reserved.
 
 package dataframe
 
 import (
-	"errors"
 	"fmt"
 )
-
-// ErrNoRows signifies that the Series, Dataframe or import data
-// contains no rows of data.
-var ErrNoRows = errors.New("contains no rows")
 
 const (
 	// FALSE is used convert a false (bool) to an int.
