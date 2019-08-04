@@ -25,7 +25,7 @@ type ErrorOptions struct {
 	DontLock bool
 
 	// SkipInvalids will skip Inf and NaN values.
-	// If set to false (default), a ErrIndeterminate will be returned.
+	// If set to false (default), an ErrIndeterminate will be returned.
 	SkipInvalids bool
 }
 
@@ -34,7 +34,7 @@ type ErrorOptions struct {
 // See: https://otexts.com/fpp2/accuracy.html
 func MeanAbsoluteError(ctx context.Context, testSeries, forecast *dataframe.SeriesFloat64, opts *ErrorOptions, r ...dataframe.Range) (float64, int, error) {
 
-	if opts != nil && !opts.DontLock {
+	if opts == nil || (opts != nil && !opts.DontLock) {
 		// Lock both series
 		testSeries.Lock()
 		forecast.Lock()
@@ -105,7 +105,7 @@ func MeanAbsoluteError(ctx context.Context, testSeries, forecast *dataframe.Seri
 // SumOfSquaredErrors represents the sum of squared errors.
 func SumOfSquaredErrors(ctx context.Context, testSeries, forecast *dataframe.SeriesFloat64, opts *ErrorOptions, r ...dataframe.Range) (float64, int, error) {
 
-	if opts != nil && !opts.DontLock {
+	if opts == nil || (opts != nil && !opts.DontLock) {
 		// Lock both series
 		testSeries.Lock()
 		forecast.Lock()
@@ -174,7 +174,7 @@ func SumOfSquaredErrors(ctx context.Context, testSeries, forecast *dataframe.Ser
 // See: https://otexts.com/fpp2/accuracy.html
 func RootMeanSquaredError(ctx context.Context, testSeries, forecast *dataframe.SeriesFloat64, opts *ErrorOptions, r ...dataframe.Range) (float64, int, error) {
 
-	if opts != nil && !opts.DontLock {
+	if opts == nil || (opts != nil && !opts.DontLock) {
 		// Lock both series
 		testSeries.Lock()
 		forecast.Lock()
@@ -209,7 +209,7 @@ func RootMeanSquaredError(ctx context.Context, testSeries, forecast *dataframe.S
 // See: https://otexts.com/fpp2/accuracy.html
 func MeanAbsolutePercentageError(ctx context.Context, testSeries, forecast *dataframe.SeriesFloat64, opts *ErrorOptions, r ...dataframe.Range) (float64, int, error) {
 
-	if opts != nil && !opts.DontLock {
+	if opts == nil || (opts != nil && !opts.DontLock) {
 		// Lock both series
 		testSeries.Lock()
 		forecast.Lock()
@@ -266,7 +266,7 @@ func MeanAbsolutePercentageError(ctx context.Context, testSeries, forecast *data
 
 		e := actual - predicted
 
-		sum = sum + math.Abs(e/actual)
+		sum = sum + math.Abs(100*e/actual)
 		n = n + 1
 	}
 
@@ -274,5 +274,5 @@ func MeanAbsolutePercentageError(ctx context.Context, testSeries, forecast *data
 		return 0.0, 0, dataframe.ErrIndeterminate
 	}
 
-	return 100 * (sum / float64(n)), n, nil
+	return sum / float64(n), n, nil
 }
