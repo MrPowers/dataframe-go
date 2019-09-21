@@ -52,7 +52,7 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 	}
 
 	st := make([]float64, len(y))
-	forecast := make([]float64, len(y)+m)
+	forecast := make([]float64, m)
 
 	// Set initial value to first element in y
 	st[1] = y[0]
@@ -66,12 +66,17 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 		}
 
 		// simple exponential Smoothing
-		st[i] = alpha*y[i] + ((1.0 - alpha) * st[i-1])
+		st[i] = alpha*y[i-1] + ((1.0 - alpha) * st[i-1])
 
+		// separating forecast from smoothing process
 		// forecast
-		if (i + m) >= len(y) {
-			forecast[i+m] = st[i] + (alpha * (y[i] - st[i]))
+		for j := 0; j < m; j++ {
+			// 'pt' serves as reference point to start forecasting from from the y set of data passed in
+			pt := len(y) - m
+			// forecast[i+m] = st[i] + (alpha * (y[i] - st[i]))
+			forecast[j] = alpha*y[pt+j] + (1.0-alpha)*st[pt+j]
 		}
+
 	}
 
 	init := &dataframe.SeriesInit{}
@@ -79,7 +84,7 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 	seriesForecast := dataframe.NewSeriesFloat64("Forecast", init)
 
 	// Load forecast data into series
-	seriesForecast.Insert(seriesForecast.NRows(), forecast[len(y):])
+	seriesForecast.Insert(seriesForecast.NRows(), forecast[:])
 
 	return seriesForecast, nil
 
