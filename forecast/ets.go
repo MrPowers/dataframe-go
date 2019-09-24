@@ -8,20 +8,9 @@ import (
 	"github.com/rocketlaunchr/dataframe-go"
 )
 
-// SimpleExponentialSmoothing method calculates
-// and returns forecast for future m periods
-//
-//// s - dataframe.SeriesFloat64 object
-//
-// y - Time series data gotten from s.
-// alpha - Exponential smoothing coefficients for level, trend,
-//        seasonal components.
-// m - Intervals into the future to forecast
-//
-// https://www.itl.nist.gov/div898/handbook/pmc/section4/pmc431.htm
-// newvalue = smoothing * next + (1 - smoothing)*old value
-// forecast[i+1] = St[i] + alpha * ϵt,
-// where ϵt is the forecast error (actual - forecast) for period i.
+// SimpleExponentialSmoothing performs forecasting based on the Exponential Smoothing algorithm.
+// It returns a SeriesFloat64 with the next m forecasted values in the series.
+// The argument α must be between [0,1]. Recent values receive more weight when α is closer to 1.
 func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64, α float64, m int, r ...dataframe.Range) (*dataframe.SeriesFloat64, error) {
 
 	if len(r) == 0 {
