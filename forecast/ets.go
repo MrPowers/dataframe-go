@@ -2,8 +2,7 @@ package forecast
 
 import (
 	"context"
-	"fmt"
-	// "errors"
+	"errors"
 
 	"github.com/bradfitz/iter"
 	"github.com/rocketlaunchr/dataframe-go"
@@ -29,16 +28,36 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 		r = append(r, dataframe.Range{})
 	}
 
-	start, end, err := r[0].Limits(len(s.Values))
+	count := len(s.Values)
+	if count == 0 {
+		return nil, errors.New("no values in series range")
+	}
+
+	start, end, err := r[0].Limits(count)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: add validation
+	// Validation
+	if end-start < 1 {
+		return nil, errors.New("no values in series range")
+	}
+
+	if m <= 0 {
+		return nil, errors.New("m must be greater than 0")
+	}
+
+	if (α < 0.0) || (α > 1.0) {
+		return nil, errors.New("α must be between [0,1]")
+	}
 
 	forecast := make([]float64, 0, m)
 	var st float64
 	for i := start; i < end+1; i++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		xt := s.Values[i]
 
 		if i == start {
@@ -46,11 +65,14 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 		} else {
 			st = α*xt + (1-α)*st
 		}
-		fmt.Println("st", st)
 	}
 
 	// Now calculate forecast
 	for range iter.N(m) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		st = α*s.Values[end] + (1-α)*st
 		forecast = append(forecast, st)
 	}
@@ -59,72 +81,4 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 	fdf.Values = forecast
 
 	return fdf, nil
-
-	//////////
-
-	// if len(r) == 0 {
-	// 	r = append(r, dataframe.Range{})
-	// }
-
-	// start, end, err := r[0].Limits(len(s.Values))
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// // inclusive of value at end index
-	// y := s.Values[start : end+1]
-
-	// // Validating arguments
-	// if len(y) == 0 {
-	// 	return nil, errors.New("value of y should be not null")
-	// }
-
-	// if m <= 0 {
-	// 	return nil, errors.New("value of m must be greater than 0")
-	// }
-
-	// if m > len(y) {
-	// 	return nil, errors.New("value of m can not be greater than length of y")
-	// }
-
-	// if (alpha < 0.0) || (alpha > 1.0) {
-	// 	return nil, errors.New("value of Alpha should satisfy 0.0 <= alpha <= 1.0")
-	// }
-
-	// st := make([]float64, len(y))
-	// forecast := make([]float64, m)
-
-	// // Set initial value to first element in y
-	// st[1] = y[0]
-
-	// // start smoothing from the third element
-	// for i := 2; i < len(y); i++ {
-
-	// 	// Exiting on context error
-	// 	if err := ctx.Err(); err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	// simple exponential Smoothing
-	// 	st[i] = alpha*y[i-1] + ((1.0 - alpha) * st[i-1])
-
-	// 	// separating forecast from smoothing process
-	// 	// forecast
-	// 	for j := 0; j < m; j++ {
-	// 		// 'pt' serves as reference point to start forecasting from from the y set of data passed in
-	// 		pt := len(y) - m
-	// 		// forecast[i+m] = st[i] + (alpha * (y[i] - st[i]))
-	// 		forecast[j] = alpha*y[pt+j] + (1.0-alpha)*st[pt+j]
-	// 	}
-
-	// }
-
-	// init := &dataframe.SeriesInit{}
-
-	// seriesForecast := dataframe.NewSeriesFloat64("Forecast", init)
-
-	// // Load forecast data into series
-	// seriesForecast.Insert(seriesForecast.NRows(), forecast[:])
-
-	// return seriesForecast, nil
-
 }
