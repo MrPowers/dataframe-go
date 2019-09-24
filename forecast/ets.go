@@ -5,6 +5,7 @@ import (
 	"fmt"
 	// "errors"
 
+	"github.com/bradfitz/iter"
 	"github.com/rocketlaunchr/dataframe-go"
 )
 
@@ -49,10 +50,8 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 	}
 
 	// Now calculate forecast
-	lastSt := st
-	for j := 0; j < m; j++ {
-		_ = j
-		st = α*lastSt + (1-α)*st
+	for range iter.N(m) {
+		st = α*s.Values[end] + (1-α)*st
 		forecast = append(forecast, st)
 	}
 
