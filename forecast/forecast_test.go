@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/rocketlaunchr/dataframe-go"
 )
 
@@ -23,11 +22,11 @@ func TestSes(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 	}
-	spew.Dump(fModel)
+	//spew.Dump(fModel)
 
 	fmt.Println(data.Table())
-	fmt.Println(fModel.testData.Table())
-	fmt.Println(fModel.fcastData.Table())
+
+	fModel.Summary()
 
 	fpredict, err := fModel.Predict(ctx, m)
 	if err != nil {
@@ -35,9 +34,6 @@ func TestSes(t *testing.T) {
 	}
 
 	fmt.Println(fpredict.Table())
-	fmt.Println("alpha:", fModel.alpha)
-	fmt.Printf("MAE: %f\n\n", fModel.mae)
-	fmt.Printf("SSE: %f\n\n", fModel.sse)
-	fmt.Printf("RMSE: %f\n\n", fModel.rmse)
-	fmt.Printf("MAPE: %f\n\n", fModel.mape)
+
+	// fModel.Optimize()
 }

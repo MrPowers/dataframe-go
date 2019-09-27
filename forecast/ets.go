@@ -3,6 +3,7 @@ package forecast
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/bradfitz/iter"
 	"github.com/rocketlaunchr/dataframe-go"
@@ -167,4 +168,30 @@ func (sm *SesModel) Predict(ctx context.Context, m int) (*dataframe.SeriesFloat6
 	fdf.Values = forecast
 
 	return fdf, nil
+}
+
+// Summary function is used to Print out Data Summary
+// From the Trained Model
+func (sm *SesModel) Summary() {
+
+	fmt.Println(sm.testData.Table())
+	fmt.Println(sm.fcastData.Table())
+
+	fmt.Printf("  Alpha: %.2f\n\n", sm.alpha)
+	fmt.Printf("  Initial Level: %.2f\n\n", sm.initialLevel)
+	fmt.Printf("  Smoothing Level: %.2f\n\n", sm.smoothingLevel)
+
+	fmt.Println("+----+ ACCURACY ERRORS +----+")
+	fmt.Printf("\n  MAE: %f\n", sm.mae)
+	fmt.Printf("\n  SSE: %f\n", sm.sse)
+	fmt.Printf("\n  RMSE: %f\n", sm.rmse)
+	fmt.Printf("\n  MAPE: %f\n", sm.mape)
+	fmt.Println("+---------------------------+")
+}
+
+// Optimize method tunes the model result and tries to reduce
+// Accuracy Errors To the mininum
+func (sm *SesModel) Optimize() (*SesModel, error) {
+	// To do.
+	panic("Model Optimize Tuner To be implemented soon")
 }
