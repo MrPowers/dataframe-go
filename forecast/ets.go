@@ -65,6 +65,10 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 	}
 
 	testData := s.Values[end+1:]
+	if len(testData) < 2 {
+		return nil, errors.New("There should be a minimum of 2 data left as testing data")
+	}
+
 	testSeries := dataframe.NewSeriesFloat64("Test Data", nil)
 	testSeries.Values = testData
 
@@ -177,16 +181,20 @@ func (sm *SesModel) Summary() {
 	fmt.Println(sm.testData.Table())
 	fmt.Println(sm.fcastData.Table())
 
-	fmt.Printf("  Alpha: %.2f\n\n", sm.alpha)
-	fmt.Printf("  Initial Level: %.2f\n\n", sm.initialLevel)
-	fmt.Printf("  Smoothing Level: %.2f\n\n", sm.smoothingLevel)
+	alpha := dataframe.NewSeriesFloat64("Alpha", nil, sm.alpha)
+	initLevel := dataframe.NewSeriesFloat64("Initial Level", nil, sm.initialLevel)
+	st := dataframe.NewSeriesFloat64("Smooting Level", nil, sm.smoothingLevel)
 
-	fmt.Println("+----+ ACCURACY ERRORS +----+")
-	fmt.Printf("\n  MAE: %f\n", sm.mae)
-	fmt.Printf("\n  SSE: %f\n", sm.sse)
-	fmt.Printf("\n  RMSE: %f\n", sm.rmse)
-	fmt.Printf("\n  MAPE: %f\n", sm.mape)
-	fmt.Println("+---------------------------+")
+	info := dataframe.NewDataFrame(alpha, initLevel, st)
+	fmt.Println(info.Table())
+
+	mae := dataframe.NewSeriesFloat64("MAE", nil, sm.mae)
+	sse := dataframe.NewSeriesFloat64("SSE", nil, sm.sse)
+	rmse := dataframe.NewSeriesFloat64("RMSE", nil, sm.rmse)
+	mape := dataframe.NewSeriesFloat64("MAPE", nil, sm.mape)
+	accuracyErrors := dataframe.NewDataFrame(sse, mae, rmse, mape)
+
+	fmt.Println(accuracyErrors.Table())
 }
 
 // Optimize method tunes the model result and tries to reduce
