@@ -74,8 +74,6 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 
 	trainedModel.testData = testSeries
 
-	// tCount := len(testData)
-
 	var st float64
 
 	for i := start; i < end+1; i++ {
@@ -195,11 +193,4 @@ func (sm *SesModel) Summary() {
 	accuracyErrors := dataframe.NewDataFrame(sse, mae, rmse, mape)
 
 	fmt.Println(accuracyErrors.Table())
-}
-
-// Optimize method tunes the model result and tries to reduce
-// Accuracy Errors To the mininum
-func (sm *SesModel) Optimize() (*SesModel, error) {
-	// To do.
-	panic("Model Optimize Tuner To be implemented soon")
 }

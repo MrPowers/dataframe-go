@@ -15,7 +15,4 @@ type Model interface {
 	// Summary function is used to Print out Data Summary
 	// From the Trained Model
 	Summary()
-	// Optimize method tunes the model result and tries to reduce
-	// Accuracy Errors To the mininum
-	Optimize() (*SesModel, error)
 }
