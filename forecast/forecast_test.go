@@ -18,17 +18,19 @@ func TestSes(t *testing.T) {
 	data := dataframe.NewSeriesFloat64("simple data", nil, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 	m := 20
 
-	fModel, err := SimpleExponentialSmoothing(ctx, data, alpha, dataframe.Range{End: &[]int{5}[0]})
+	fModel := SimpleExponentialSmoothing(data)
+	
+	fModelFit, err := fModel.Fit(ctx, alpha, dataframe.Range{End: &[]int{5}[0]})
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 	}
-	//spew.Dump(fModel)
+	//spew.Dump(fModelFit)
 
 	fmt.Println(data.Table())
 
-	fModel.Summary()
+	fModelFit.Summary()
 
-	fpredict, err := fModel.Predict(ctx, m)
+	fpredict, err := fModelFit.Predict(ctx, m)
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 	}

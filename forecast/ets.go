@@ -12,6 +12,7 @@ import (
 // SesModel is a struct that holds necessary
 // computed values for a forecasting result
 type SesModel struct {
+	data 		   *dataframe.SeriesFloat64
 	testData       *dataframe.SeriesFloat64
 	fcastData      *dataframe.SeriesFloat64
 	initialLevel   float64
@@ -24,16 +25,37 @@ type SesModel struct {
 	mape           float64
 }
 
-// SimpleExponentialSmoothing performs forecasting based on the Exponential Smoothing algorithm.
-// It returns a SeriesFloat64 with the next m forecasted values in the series.
-// The argument α must be between [0,1]. Recent values receive more weight when α is closer to 1.
-func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64, α float64, r ...dataframe.Range) (*SesModel, error) {
+// SimpleExponentialSmoothing Function receives a series data of type dataframe.Seriesfloat64
+// It returns a SesModel from which Fit and Predict method can be carried out.
+func SimpleExponentialSmoothing(s *dataframe.SeriesFloat64) *SesModel {
+	
+	model := &SesModel{
+		alpha:          0.0,
+		data : 			&dataframe.SeriesFloat64{},
+		testData:       &dataframe.SeriesFloat64{},
+		fcastData:      &dataframe.SeriesFloat64{},
+		initialLevel:   0.0,
+		smoothingLevel: 0.0,
+		mae:            0.0,
+		sse:            0.0,
+		rmse:           0.0,
+		mape:           0.0,
+	}
 
+	model.data = s
+	return model
+}
+
+// Fit Method performs the splitting and trainging of the SesModel based on the Exponential Smoothing algorithm.
+// It returns a trained SesModel ready to carry out future forecasts.
+// The argument α must be between [0,1]. Recent values receive more weight when α is closer to 1.
+func (sm *SesModel) Fit(ctx context.Context, α float64, r ...dataframe.Range ) (*SesModel, error) {
+	
 	if len(r) == 0 {
 		r = append(r, dataframe.Range{})
 	}
 
-	count := len(s.Values)
+	count := len(sm.data.Values)
 	if count == 0 {
 		return nil, errors.New("no values in series range")
 	}
@@ -52,19 +74,9 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 		return nil, errors.New("α must be between [0,1]")
 	}
 
-	trainedModel := &SesModel{
-		alpha:          α,
-		testData:       &dataframe.SeriesFloat64{},
-		fcastData:      &dataframe.SeriesFloat64{},
-		initialLevel:   0.0,
-		smoothingLevel: 0.0,
-		mae:            0.0,
-		sse:            0.0,
-		rmse:           0.0,
-		mape:           0.0,
-	}
+	sm.alpha = α
 
-	testData := s.Values[end+1:]
+	testData := sm.data.Values[end+1:]
 	if len(testData) < 2 {
 		return nil, errors.New("There should be a minimum of 2 data left as testing data")
 	}
@@ -72,7 +84,7 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 	testSeries := dataframe.NewSeriesFloat64("Test Data", nil)
 	testSeries.Values = testData
 
-	trainedModel.testData = testSeries
+	sm.testData = testSeries
 
 	var st float64
 
@@ -81,11 +93,11 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 			return nil, err
 		}
 
-		xt := s.Values[i]
+		xt := sm.data.Values[i]
 
 		if i == start {
 			st = xt
-			trainedModel.initialLevel = xt
+			sm.initialLevel = xt
 		} else {
 			st = α*xt + (1-α)*st
 		}
@@ -93,26 +105,26 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 	}
 
 	fcast := []float64{}
-	for k := end + 1; k < len(s.Values); k++ {
+	for k := end + 1; k < len(sm.data.Values); k++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		xt := s.Values[k]
+		xt := sm.data.Values[k]
 
 		st = α*xt + (1-α)*st
 		fcast = append(fcast, st)
 
 		// Setting the last value in data as Yorigin value for bootstrapping
-		if k == len(s.Values)-1 {
-			trainedModel.originValue = s.Values[k]
+		if k == len(sm.data.Values)-1 {
+			sm.originValue = sm.data.Values[k]
 		}
 	}
 
 	fcastSeries := dataframe.NewSeriesFloat64("Forecast Data", nil)
 	fcastSeries.Values = fcast
-	trainedModel.fcastData = fcastSeries
+	sm.fcastData = fcastSeries
 
-	trainedModel.smoothingLevel = st
+	sm.smoothingLevel = st
 
 	opts := &ErrorOptions{}
 
@@ -136,16 +148,17 @@ func SimpleExponentialSmoothing(ctx context.Context, s *dataframe.SeriesFloat64,
 		return nil, err
 	}
 
-	trainedModel.sse = sse
-	trainedModel.mae = mae
-	trainedModel.rmse = rmse
-	trainedModel.mape = mape
+	sm.sse = sse
+	sm.mae = mae
+	sm.rmse = rmse
+	sm.mape = mape
 
-	return trainedModel, nil
+	return sm, nil
 }
 
+
 // Predict method is used to run future predictions for Ses
-// Using Bootstrapping method
+// Using Ses Bootstrapping method
 func (sm *SesModel) Predict(ctx context.Context, m int) (*dataframe.SeriesFloat64, error) {
 	if m <= 0 {
 		return nil, errors.New("m must be greater than 0")
