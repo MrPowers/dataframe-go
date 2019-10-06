@@ -44,11 +44,11 @@ import (
 func TestHw(t *testing.T) {
 	ctx := context.Background()
 
-	// 48 + 24 = 72 data pts
+	// 48 + 24 = 72 data pts + extra 12
 	data := dataframe.NewSeriesFloat64("simple data", nil, 30,21,29,31,40,48,53,47,37,39,31,29,17,9,20,24,27,35,41,38,
 	27,31,27,26,21,13,21,18,33,35,40,36,22,24,21,20,17,14,17,19,
 	26,29,40,31,20,24,18,26,17,9,17,21,28,32,46,33,23,28,22,27,
-	18,8,17,21,31,34,44,38,31,30,26,32)
+	18,8,17,21,31,34,44,38,31,30,26,32,  45, 34, 30, 27, 25, 22, 28, 33, 42, 32, 40, 52)
 
 	period := 12
 	h := 24
@@ -59,7 +59,7 @@ func TestHw(t *testing.T) {
 	beta := 0.029
 	gamma := 0.993
 
-	fModelFit, err := fModel.Fit(ctx, alpha, beta, gamma, period, dataframe.Range{End: &[]int{47}[0]})
+	fModelFit, err := fModel.Fit(ctx, alpha, beta, gamma, period, dataframe.Range{End: &[]int{71}[0]})
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 	}

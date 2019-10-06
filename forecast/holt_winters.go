@@ -31,31 +31,8 @@ type HwModel struct {
 	mape           		float64
 }
 
-// HoltWinters method is the entry point. it calculates the initial values and
-// returns the forecast for the future m periods.
-//
-// s - dataframe.SeriesFloat64 object
-//
-// y - Time series data gotten from s.
-// alpha - Exponential smoothing coefficients for level, trend,
-//        seasonal components.
-// beta - Exponential smoothing coefficients for level, trend,
-//        seasonal components.
-// gamma - Exponential smoothing coefficients for level, trend,
-//         seasonal components.
-// period - A complete season's data consists of L periods. And we need
-//           to estimate the trend factor from one period to the next. To
-//           accomplish this, it is advisable to use two complete seasons;
-//           that is, 2L periods.
-// m - Extrapolated future data points.
-//   - 4 quarterly,
-//   - 7 weekly,
-//   - 12 monthly
-// http://www.itl.nist.gov/div898/handbook/pmc/section4/pmc435.htm
-// st[i] = alpha * y[i] / it[i - period] + (1.0 - alpha) * (st[i - 1] + bt[i - 1])
-// bt[i] = gamma * (st[i] - st[i - 1]) + (1 - gamma) * bt[i - 1]
-// it[i] = beta * y[i] / st[i] + (1.0 - beta) * it[i - period]
-// ft[i + m] = (st[i] + (m * bt[i])) * it[i - period + m]
+// HoltWinters Function receives a series data of type dataframe.Seriesfloat64
+// It returns a HwModel from which Fit and Predict method can be carried out.
 func HoltWinters(s *dataframe.SeriesFloat64) *HwModel {
 	model := &HwModel{
 		data: 				&dataframe.SeriesFloat64{},
@@ -151,9 +128,17 @@ func (hm *HwModel) Fit (ctx context.Context, α, β, γ float64, period int, r .
 			hm.initialSmooth = xt
 			
 		} else {
-			prevSt, st = st, α * (xt - seasonals[i % period]) + (1-α) * (st+trnd)
+			// multiplicative method
+			// prevSt, st = st, α * (xt / seasonals[i % period]) + (1 - α) * (st + trnd)
+			// prevTrnd, trnd = trnd, β * (st - prevSt) + (1 - β) * trnd
+			// seasonals[i % period] = γ * (xt / (prevSt + prevTrnd)) + (1 - γ) * seasonals[i % period]
+
+			// additive method
+			prevSt, st = st, α * (xt - seasonals[i % period]) + (1 - α) * (st + trnd)
 			prevTrnd, trnd = trnd, β * (st - prevSt) + (1 - β) * trnd
 			seasonals[i % period] = γ * (xt - prevSt - prevTrnd) + (1 - γ) * seasonals[i % period]
+			// _ = prevTrnd
+			// fmt.Println(st + trnd + seasonals[i % period])
 		}
 
 	}
@@ -165,7 +150,10 @@ func (hm *HwModel) Fit (ctx context.Context, α, β, γ float64, period int, r .
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		// multiplicative Method
+		// fcast = append(fcast, (st + float64(m)*trnd) * seasonals[(m-1) % period])
 
+		// additive method
 		fcast = append(fcast, (st + float64(m)*trnd) + seasonals[(m-1) % period])
 
 		m++		
@@ -233,6 +221,10 @@ func (hm *HwModel) Predict(ctx context.Context, h int) (*dataframe.SeriesFloat64
 			return nil, err
 		}
 
+		// multiplicative Method
+		// fcast = append(fcast, (st + float64(m)*trnd) * seasonals[(m-1) % period])
+
+		// additive method
 		forecast = append(forecast, (st + float64(m)*trnd) + seasonals[(m - 1) % period])
 
 		m++
