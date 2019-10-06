@@ -47,7 +47,7 @@ func SimpleExponentialSmoothing(s *dataframe.SeriesFloat64) *SesModel {
 }
 
 // Fit Method performs the splitting and trainging of the SesModel based on the Exponential Smoothing algorithm.
-// It returns a trained SesModel ready to carry out future forecasts.
+// It returns a trained SesModel ready to carry out future predictions.
 // The argument α must be between [0,1]. Recent values receive more weight when α is closer to 1.
 func (sm *SesModel) Fit(ctx context.Context, α float64, r ...dataframe.Range ) (*SesModel, error) {
 	
@@ -86,8 +86,8 @@ func (sm *SesModel) Fit(ctx context.Context, α float64, r ...dataframe.Range ) 
 
 	sm.testData = testSeries
 
-	var st float64
-
+	var st, Yorigin float64
+	// Training smoothing Level
 	for i := start; i < end+1; i++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -98,34 +98,32 @@ func (sm *SesModel) Fit(ctx context.Context, α float64, r ...dataframe.Range ) 
 		if i == start {
 			st = xt
 			sm.initialLevel = xt
+
+		} else if i == end { // Setting the last value in traindata as Yorigin value for bootstrapping
+			Yorigin = sm.data.Values[i]
+			sm.originValue = Yorigin
 		} else {
 			st = α*xt + (1-α)*st
 		}
-
 	}
+	sm.smoothingLevel = st
 
 	fcast := []float64{}
 	for k := end + 1; k < len(sm.data.Values); k++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		xt := sm.data.Values[k]
 
-		st = α*xt + (1-α)*st
+		st = α * Yorigin + (1-α) * st
 		fcast = append(fcast, st)
 
-		// Setting the last value in data as Yorigin value for bootstrapping
-		if k == len(sm.data.Values)-1 {
-			sm.originValue = sm.data.Values[k]
-		}
 	}
 
 	fcastSeries := dataframe.NewSeriesFloat64("Forecast Data", nil)
 	fcastSeries.Values = fcast
 	sm.fcastData = fcastSeries
 
-	sm.smoothingLevel = st
-
+	
 	opts := &ErrorOptions{}
 
 	mae, _, err := MeanAbsoluteError(ctx, testSeries, fcastSeries, opts)
@@ -189,9 +187,6 @@ func (sm *SesModel) Predict(ctx context.Context, m int) (*dataframe.SeriesFloat6
 // From the Trained Model
 func (sm *SesModel) Summary() {
 
-	fmt.Println(sm.testData.Table())
-	fmt.Println(sm.fcastData.Table())
-
 	alpha := dataframe.NewSeriesFloat64("Alpha", nil, sm.alpha)
 	initLevel := dataframe.NewSeriesFloat64("Initial Level", nil, sm.initialLevel)
 	st := dataframe.NewSeriesFloat64("Smooting Level", nil, sm.smoothingLevel)
@@ -206,4 +201,7 @@ func (sm *SesModel) Summary() {
 	accuracyErrors := dataframe.NewDataFrame(sse, mae, rmse, mape)
 
 	fmt.Println(accuracyErrors.Table())
+
+	fmt.Println(sm.testData.Table())
+	fmt.Println(sm.fcastData.Table())
 }

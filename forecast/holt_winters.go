@@ -3,9 +3,33 @@ package forecast
 import (
 	"context"
 	"errors"
+	"fmt"
 
+	"github.com/bradfitz/iter"
 	"github.com/rocketlaunchr/dataframe-go"
 )
+
+// HwModel is a Model Interface that holds necessary
+// computed values for a forecasting result
+type HwModel struct {
+	data 		   		*dataframe.SeriesFloat64
+	testData       		*dataframe.SeriesFloat64
+	fcastData      		*dataframe.SeriesFloat64
+	initialSmooth   		float64
+	initialTrend    		float64
+	initialSeasonalComps 	[]float64
+	smoothingLevel		float64
+	trendLevel 			float64
+	seasonalComps		[]float64
+	period          	int
+	alpha          		float64
+	beta 				float64
+	gamma 				float64
+	mae            		float64
+	sse            		float64
+	rmse           		float64
+	mape           		float64
+}
 
 // HoltWinters method is the entry point. it calculates the initial values and
 // returns the forecast for the future m periods.
@@ -32,156 +56,232 @@ import (
 // bt[i] = gamma * (st[i] - st[i - 1]) + (1 - gamma) * bt[i - 1]
 // it[i] = beta * y[i] / st[i] + (1.0 - beta) * it[i - period]
 // ft[i + m] = (st[i] + (m * bt[i])) * it[i - period + m]
-func HoltWinters(ctx context.Context, s *dataframe.SeriesFloat64, alpha, beta, gamma float64, period, m int, r ...dataframe.Range) (*dataframe.SeriesFloat64, error) {
+func HoltWinters(s *dataframe.SeriesFloat64) *HwModel {
+	model := &HwModel{
+		data: 				&dataframe.SeriesFloat64{},
+		testData: 			&dataframe.SeriesFloat64{},
+		fcastData: 			&dataframe.SeriesFloat64{},
+		initialSmooth: 			0.0,
+		initialTrend: 			0.0,
+		initialSeasonalComps: 	[]float64{},
+		smoothingLevel: 	0.0,
+		trendLevel: 		0.0,
+		seasonalComps:      []float64{},
+		period: 			0,
+		alpha: 				0.0,
+		beta: 				0.0,
+		gamma:				0.0,
+		mae:				0.0,
+		sse: 				0.0,
+		rmse: 				0.0,
+		mape: 				0.0,
+	}
+
+	model.data = s
+	return model
+}
+
+// Fit Method performs the splitting and trainging of the HwModel based on the Tripple Exponential Smoothing algorithm.
+// It returns a trained HwModel ready to carry out future predictions.
+// The arguments α, beta nd gamma must be between [0,1]. Recent values receive more weight when α is closer to 1.
+func (hm *HwModel) Fit (ctx context.Context, α, β, γ float64, period int, r ...dataframe.Range) (*HwModel, error) {
 
 	if len(r) == 0 {
 		r = append(r, dataframe.Range{})
 	}
 
-	start, end, err := r[0].Limits(len(s.Values))
-	if err != nil {
-		return nil, err
-	}
-	// inclusive of value at end index
-	y := s.Values[start : end+1]
-
-	// Validating arguments
-	if len(y) == 0 {
-		return nil, errors.New("value of y should be not null")
-	}
-
-	if m <= 0 {
-		return nil, errors.New("value of m must be greater than 0")
-	}
-
-	if m > period {
-		return nil, errors.New("value of m must be <= period")
-	}
-
-	if (alpha < 0.0) || (alpha > 1.0) {
-		return nil, errors.New("value of Alpha should satisfy 0.0 <= alpha <= 1.0")
-	}
-
-	if (beta < 0.0) || (beta > 1.0) {
-		return nil, errors.New("value of Beta should satisfy 0.0 <= beta <= 1.0")
-	}
-
-	if (gamma < 0.0) || (gamma > 1.0) {
-		return nil, errors.New("value of Gamma should satisfy 0.0 <= gamma <= 1.0")
-	}
-
-	seasons := len(y) / period
-	a0 := initialLevel(y)
-	b0 := initialTrend(y, period)
-	seasonal := seasonalIndicies(y, period, seasons)
-
-	forecast, err := calculateHoltWinters(ctx, y, a0, b0, alpha, beta, gamma, seasonal, period, m)
+	start, end, err := r[0].Limits(len(hm.data.Values))
 	if err != nil {
 		return nil, err
 	}
 
-	init := &dataframe.SeriesInit{}
-
-	seriesForecast := dataframe.NewSeriesFloat64(s.Name(), init)
-
-	// Load forecast data into series
-	seriesForecast.Insert(seriesForecast.NRows(), forecast[period:])
-
-	return seriesForecast, nil
-}
-
-// This method realizes the Holt-Winters equations.
-// Forecast for m periods.
-func calculateHoltWinters(ctx context.Context, y []float64, a0, b0, alpha, beta, gamma float64, initialSeasonalIndices []float64, period, m int) ([]float64, error) {
-
-	st := make([]float64, len(y))
-	bt := make([]float64, len(y))
-	it := make([]float64, len(y))
-	ft := make([]float64, len(y)+m)
-
-	st[1] = a0
-	bt[1] = b0
-
-	for i := 0; i < period; i++ {
-		it[i] = initialSeasonalIndices[i]
+	// Validation
+	if end-start < 1 {
+		return nil, errors.New("no values in series range")
 	}
 
-	for i := 2; i < len(y); i++ {
+	if (α < 0.0) || (α > 1.0) {
+		return nil, errors.New("α must be between [0,1]")
+	}
 
+	if (β < 0.0) || (β > 1.0) {
+		return nil, errors.New("β must be between [0,1]")
+	}
+
+	if (γ < 0.0) || (γ > 1.0) {
+		return nil, errors.New("γ must be between [0,1]")
+	}
+
+	testData := hm.data.Values[end+1:]
+	if len(testData) < 2 {
+		return nil, errors.New("There should be a minimum of 2 data left as testing data")
+	}
+
+	testSeries := dataframe.NewSeriesFloat64("Test Data", nil)
+	testSeries.Values = testData
+	hm.testData = testSeries
+
+	hm.alpha = α
+	hm.beta = β
+	hm.gamma = γ
+
+	y := hm.data.Values[start:end+1]
+
+	seasonals := initialSeasonalComponents(y, period)
+
+	hm.initialSeasonalComps = initialSeasonalComponents(y, period)
+
+	var trnd, prevTrnd float64 
+	trnd = initialTrend(y, period)
+	hm.initialTrend = trnd
+
+	var st, prevSt float64 // smooth
+	
+	for i := start; i < end+1; i++ {
 		// Breaking out on context failure
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 
-		// overall smoothing
-		if (i - period) >= 0 {
-			st[i] = alpha*y[i]/it[i-period] + (1.0-alpha)*(st[i-1]+bt[i-1])
+		xt := y[i]
+
+		if i == start { // Set initial smooth
+			st = xt
+
+			hm.initialSmooth = xt
+			
 		} else {
-			st[i] = alpha*y[i] + (1.0-alpha)*(st[i-1]+bt[i-1])
+			prevSt, st = st, α * (xt - seasonals[i % period]) + (1-α) * (st+trnd)
+			prevTrnd, trnd = trnd, β * (st - prevSt) + (1 - β) * trnd
+			seasonals[i % period] = γ * (xt - prevSt - prevTrnd) + (1 - γ) * seasonals[i % period]
 		}
 
-		// trend smoothing
-		bt[i] = gamma*(st[i]-st[i-1]) + (1-gamma)*bt[i-1]
-
-		// seasonal smoothing
-		if (i - period) >= 0 {
-			it[i] = beta*y[i]/st[i] + (1.0-beta)*it[i-period]
-		}
-
-		// forecast
-		if (i + m) >= period {
-			ft[i+m] = (st[i] + (float64(m) * bt[i])) * it[i-period+m]
-		}
 	}
 
-	return ft, nil
+	// This is for the test forecast
+	fcast := []float64{}
+	m := 1
+	for k := end + 1; k < len(hm.data.Values); k++ { 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		fcast = append(fcast, (st + float64(m)*trnd) + seasonals[(m-1) % period])
+
+		m++		
+	}
+	
+	fcastSeries := dataframe.NewSeriesFloat64("Forecast Data", nil)
+	fcastSeries.Values = fcast
+	hm.fcastData = fcastSeries
+
+	hm.smoothingLevel = st
+	hm.trendLevel = trnd
+	hm.period = period
+	hm.seasonalComps = seasonals
+
+	// NOw to calculate the Errors
+	opts := &ErrorOptions{}
+
+	mae, _, err := MeanAbsoluteError(ctx, testSeries, fcastSeries, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	sse, _, err := SumOfSquaredErrors(ctx, testSeries, fcastSeries, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	rmse, _, err := RootMeanSquaredError(ctx, testSeries, fcastSeries, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	mape, _, err := MeanAbsolutePercentageError(ctx, testSeries, fcastSeries, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	hm.sse = sse
+	hm.mae = mae
+	hm.rmse = rmse
+	hm.mape = mape
+
+	return hm, nil
 }
 
-// See: http://robjhyndman.com/researchtips/hw-initialization/
-func initialLevel(y []float64) float64 {
-	return y[0]
+// Predict method runs future predictions for HoltWinter Model
+// It returns result in dataframe.SeriesFloat64 format
+func (hm *HwModel) Predict(ctx context.Context, h int) (*dataframe.SeriesFloat64, error) {
+	
+	// Validation
+	if h <= 0 {
+		return nil, errors.New("value of h must be greater than 0")
+	}
+
+	forecast := make([]float64, 0, h)
+	
+	st := hm.smoothingLevel
+	seasonals := hm.seasonalComps
+	trnd := hm.trendLevel
+	period := hm.period
+
+	m := 1
+	for range iter.N(h) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		forecast = append(forecast, (st + float64(m)*trnd) + seasonals[(m - 1) % period])
+
+		m++
+	}
+
+	fdf := dataframe.NewSeriesFloat64("Prediction", nil)
+	fdf.Values = forecast
+
+	return fdf, nil
 }
 
-// See: http://www.itl.nist.gov/div898/handbook/pmc/section4/pmc435.htm
-func initialTrend(y []float64, period int) float64 {
+// Summary function is used to Print out Data Summary
+// From the Trained Model
+func (hm *HwModel) Summary() {
 
-	var sum float64
-	sum = 0
+	alpha := dataframe.NewSeriesFloat64("Alpha", nil, hm.alpha)
+	beta := dataframe.NewSeriesFloat64("Beta", nil, hm.beta)
+	gamma := dataframe.NewSeriesFloat64("Gamma", nil, hm.gamma)
+	period := dataframe.NewSeriesFloat64("Period", nil, hm.period)
 
-	for i := 0; i < period; i++ {
-		sum += (y[period+i] - y[i])
-	}
+	infoConstants := dataframe.NewDataFrame(alpha, beta, gamma, period)
+	fmt.Println(infoConstants.Table())
 
-	return sum / float64(period*period)
-}
+	initSmooth := dataframe.NewSeriesFloat64("Initial Smooothing Level", nil, hm.initialSmooth)
+	initTrend := dataframe.NewSeriesFloat64("Initial Trend Level", nil, hm.initialTrend)
 
-// See: http://www.itl.nist.gov/div898/handbook/pmc/section4/pmc435.htm
-func seasonalIndicies(y []float64, period, seasons int) []float64 {
+	st := dataframe.NewSeriesFloat64("Smooting Level", nil, hm.smoothingLevel)
+	trnd := dataframe.NewSeriesFloat64("Trend Level", nil, hm.trendLevel)
 
-	seasonalAverage := make([]float64, seasons)
-	seasonalIndices := make([]float64, period)
+	infoComponents := dataframe.NewDataFrame(initSmooth, initTrend, st, trnd)
+	fmt.Println(infoComponents.Table())
 
-	averagedObservations := make([]float64, len(y))
+	initSeasonalComps := dataframe.NewSeriesFloat64("Initial Seasonal Components", nil)
+	initSeasonalComps.Values = hm.initialSeasonalComps
+	
+	seasonalComps := dataframe.NewSeriesFloat64("Seasonal Components", nil)
+	seasonalComps.Values = hm.seasonalComps
 
-	for i := 0; i < seasons; i++ {
-		for j := 0; j < period; j++ {
-			seasonalAverage[i] += y[(i*period)+j]
-		}
-		seasonalAverage[i] /= float64(period)
-	}
+	seasonalComponents := dataframe.NewDataFrame(initSeasonalComps, seasonalComps)
+	fmt.Println(seasonalComponents)
 
-	for i := 0; i < seasons; i++ {
-		for j := 0; j < period; j++ {
-			averagedObservations[(i*period)+j] = y[(i*period)+j] / seasonalAverage[i]
-		}
-	}
+	mae := dataframe.NewSeriesFloat64("MAE", nil, hm.mae)
+	sse := dataframe.NewSeriesFloat64("SSE", nil, hm.sse)
+	rmse := dataframe.NewSeriesFloat64("RMSE", nil, hm.rmse)
+	mape := dataframe.NewSeriesFloat64("MAPE", nil, hm.mape)
+	accuracyErrors := dataframe.NewDataFrame(sse, mae, rmse, mape)
 
-	for i := 0; i < period; i++ {
-		for j := 0; j < seasons; j++ {
-			seasonalIndices[i] += averagedObservations[(j*period)+i]
-		}
-		seasonalIndices[i] /= float64(seasons)
-	}
+	fmt.Println(accuracyErrors.Table())
 
-	return seasonalIndices
+	fmt.Println(hm.testData.Table())
+	fmt.Println(hm.fcastData.Table())
 }
